@@ -63,7 +63,7 @@ Dockpit использует SSH туннель для безопасного п
 - Нажмите "Добавить хост"
 - Выберите "SSH Туннель"
 
-![Dockpit ssh connections demo](.assets/ssh-conection-demo.gif)
+![Dockpit ssh connections demo](./assets/ssh-conection-demo.gif)
 ---
 
 ## 📦 Установка зависимостей по дистрибутивам
