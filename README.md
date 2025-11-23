@@ -61,15 +61,7 @@ sudo usermod -aG docker $USER
 sudo apt update && sudo apt upgrade -y
 
 # Установка зависимостей Tauri
-sudo apt install -y libwebkit2gtk-4.0-dev \
-    build-essential \
-    curl \
-    wget \
-    file \
-    libssl-dev \
-    libgtk-3-dev \
-    libayatana-appindicator3-dev \
-    librsvg2-dev
+sudo apt install -y libsoup-3.0-dev libjavascriptcoregtk-4.1-dev libwebkit2gtk-4.1-dev build-essential curl wget file  libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
 
 # Установка Rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
