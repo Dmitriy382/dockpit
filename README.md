@@ -2,7 +2,7 @@
 
 **Dockpit** — современный графический интерфейс для управления Docker контейнерами, образами и сетями, написанный на Rust (Tauri) + React + TypeScript.
 
-![Dockpit Screenshot](https://via.placeholder.com/800x450?text=Dockpit+Interface)
+![Dockpit Demo](./assets/dockpit.gif)
 
 ## ✨ Возможности
 
