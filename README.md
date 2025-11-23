@@ -289,6 +289,6 @@ MIT License - см. файл LICENSE
 
 ## 📞 Контакты
 
-- GitHub: [github.com/yourusername/dockpit](https://github.com/Dmitriy382/dockpit)
-- Issues: [github.com/yourusername/dockpit/issues](https://github.com/Dmitriy382/dockpit/issues)
+- GitHub: [github.com/Dmitriy382/dockpit](https://github.com/Dmitriy382/dockpit)
+- Issues: [github.com/Dmitriy382/dockpit/issues](https://github.com/Dmitriy382/dockpit/issues)
 
