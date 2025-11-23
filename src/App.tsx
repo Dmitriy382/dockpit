@@ -740,7 +740,6 @@ interface DetailsModalProps {
   onClose: () => void;
 }
 
-// Продолжение функции DetailsModal
 
 function DetailsModal({ container, onClose }: DetailsModalProps) {
   const [activeTab, setActiveTab] = useState<'stats' | 'env' | 'ports' | 'volumes' | 'network'>('stats');

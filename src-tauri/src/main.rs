@@ -21,7 +21,6 @@ use tauri::Emitter;
 use std::default::Default;
 use std::sync::Mutex;
 
-// Глобальное состояние подключения
 struct DockerConnection {
     connection_type: Mutex<ConnectionType>,
     ssh_config: Mutex<Option<SshConfig>>,
@@ -49,7 +48,6 @@ pub struct ConnectionInfo {
     pub connected: bool,
 }
 
-// Структура для контейнера
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ContainerInfo {
     pub id: String,
@@ -59,7 +57,6 @@ pub struct ContainerInfo {
     pub status: String,
 }
 
-// Структура для образа
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ImageInfo {
     pub id: String,
@@ -68,7 +65,6 @@ pub struct ImageInfo {
     pub created: i64,
 }
 
-// Структура для сети
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct NetworkInfo {
     pub id: String,
@@ -117,7 +113,6 @@ pub struct ContainerDetails {
     pub restart_policy: String,
 }
 
-// Инициализация состояния
 impl Default for DockerConnection {
     fn default() -> Self {
         Self {
@@ -127,7 +122,6 @@ impl Default for DockerConnection {
     }
 }
 
-// Функция для получения Docker подключения
 fn get_docker_connection(state: tauri::State<DockerConnection>) -> Result<Docker, String> {
     let conn_type = state.connection_type.lock().unwrap().clone();
     
@@ -157,8 +151,6 @@ fn get_docker_connection(state: tauri::State<DockerConnection>) -> Result<Docker
     }
 }
 
-// НОВЫЕ КОМАНДЫ ДЛЯ SSH
-
 #[tauri::command]
 async fn connect_ssh(
     host: String,
@@ -176,11 +168,11 @@ async fn connect_ssh(
         key_path: key_path.clone(),
     };
     
-    // Сохраняем конфигурацию
+    
     *state.ssh_config.lock().unwrap() = Some(ssh_config.clone());
     *state.connection_type.lock().unwrap() = ConnectionType::Ssh;
     
-    // Проверяем подключение через HTTP (Docker должен быть доступен через HTTP API)
+    
     let docker_url = format!("http://{}:2375", host);
     
     match Docker::connect_with_http(&docker_url, 120, bollard::API_DEFAULT_VERSION) {
@@ -192,7 +184,7 @@ async fn connect_ssh(
             })
         },
         Err(e) => {
-            // Откатываем на локальное подключение при ошибке
+            
             *state.connection_type.lock().unwrap() = ConnectionType::Local;
             *state.ssh_config.lock().unwrap() = None;
             Err(format!("Connection failed: {}. Make sure Docker is exposed on port 2375 on remote host", e))
@@ -207,7 +199,7 @@ async fn connect_local(
     *state.connection_type.lock().unwrap() = ConnectionType::Local;
     *state.ssh_config.lock().unwrap() = None;
     
-    // Проверяем подключение
+    
     match Docker::connect_with_local_defaults() {
         Ok(_docker) => {
             Ok(ConnectionInfo {
