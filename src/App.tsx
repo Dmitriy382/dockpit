@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from '@tauri-apps/api/event';
-import { RefreshCw, Box, PlayCircle, StopCircle, X, Terminal, RotateCw, Menu, Container, Image, Network, Info, Activity, Settings, HardDrive, Wifi } from "lucide-react"; 
+import { RefreshCw, Box, PlayCircle, StopCircle, X, Terminal, RotateCw, Menu, Container, Image, Network, Info, Activity, Settings, HardDrive, Wifi, Server, Plus } from "lucide-react"; 
 
 interface ContainerInfo {
   id: string;
@@ -61,6 +61,12 @@ interface ContainerDetails {
   restart_policy: string;
 }
 
+interface ConnectionInfo {
+  connection_type: string;
+  host: string;
+  connected: boolean;
+}
+
 type ViewType = 'containers' | 'images' | 'networks';
 
 function App() {
@@ -72,6 +78,17 @@ function App() {
   const [detailsContainer, setDetailsContainer] = useState<ContainerInfo | null>(null);
   const [currentView, setCurrentView] = useState<ViewType>('containers');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [connectionInfo, setConnectionInfo] = useState<ConnectionInfo | null>(null);
+  const [showConnectionModal, setShowConnectionModal] = useState(false);
+
+  async function fetchConnectionInfo() {
+    try {
+      const info = await invoke<ConnectionInfo>("get_connection_info");
+      setConnectionInfo(info);
+    } catch (error) {
+      console.error("Failed to fetch connection info:", error);
+    }
+  }
 
   async function fetchContainers() {
     setLoading(true);
@@ -160,6 +177,7 @@ function App() {
   };
 
   useEffect(() => {
+    fetchConnectionInfo();
     fetchContainers();
     const interval = setInterval(fetchContainers, 5000);
     return () => clearInterval(interval);
@@ -190,14 +208,30 @@ function App() {
           </button>
           <Box className="w-8 h-8 text-blue-400" />
           <h1 className="text-3xl font-extrabold tracking-tight">Dockpit</h1>
+          
+          {connectionInfo && (
+            <div className="ml-4 px-3 py-1 bg-slate-800 rounded-lg text-sm flex items-center gap-2">
+              <Server size={14} className={connectionInfo.connection_type === 'ssh' ? 'text-green-400' : 'text-blue-400'} />
+              <span className="text-slate-400">{connectionInfo.host}</span>
+            </div>
+          )}
         </div>
-        <button
-          onClick={handleRefresh}
-          className="p-2 bg-slate-800 text-slate-400 hover:bg-slate-700 rounded-full transition-colors shadow-lg"
-          disabled={loading}
-        >
-          <RefreshCw className={`w-5 h-5 ${loading ? "animate-spin" : ""}`} />
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowConnectionModal(true)}
+            className="p-2 bg-slate-800 text-slate-400 hover:bg-slate-700 rounded-lg transition-colors flex items-center gap-2"
+            title="Change Connection"
+          >
+            <Plus className="w-5 h-5" />
+          </button>
+          <button
+            onClick={handleRefresh}
+            className="p-2 bg-slate-800 text-slate-400 hover:bg-slate-700 rounded-full transition-colors shadow-lg"
+            disabled={loading}
+          >
+            <RefreshCw className={`w-5 h-5 ${loading ? "animate-spin" : ""}`} />
+          </button>
+        </div>
       </div>
 
       {/* Sidebar */}
@@ -427,6 +461,17 @@ function App() {
           onClose={() => setDetailsContainer(null)}
         />
       )}
+
+      {showConnectionModal && (
+        <ConnectionModal
+          onClose={() => setShowConnectionModal(false)}
+          onConnect={() => {
+            setShowConnectionModal(false);
+            fetchConnectionInfo();
+            handleRefresh();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -443,6 +488,190 @@ function StatusBadge({ state }: { state: string }) {
     >
       {state}
     </span>
+  );
+}
+
+interface ConnectionModalProps {
+  onClose: () => void;
+  onConnect: () => void;
+}
+
+function ConnectionModal({ onClose, onConnect }: ConnectionModalProps) {
+  const [connectionType, setConnectionType] = useState<'local' | 'ssh'>('local');
+  const [host, setHost] = useState('');
+  const [port, setPort] = useState('22');
+  const [username, setUsername] = useState('');
+  const [authType, setAuthType] = useState<'password' | 'key'>('password');
+  const [password, setPassword] = useState('');
+  const [keyPath, setKeyPath] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleConnect = async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      if (connectionType === 'local') {
+        await invoke('connect_local');
+        onConnect();
+      } else {
+        await invoke('connect_ssh', {
+          host,
+          port: parseInt(port),
+          username,
+          password: authType === 'password' ? password : null,
+          keyPath: authType === 'key' ? keyPath : null,
+        });
+        onConnect();
+      }
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-slate-900 w-full max-w-md rounded-xl shadow-2xl border border-slate-700">
+        <div className="p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xl font-bold flex items-center gap-2">
+              <Server size={20} className="text-blue-400" />
+              Connection Settings
+            </h3>
+            <button onClick={onClose} className="p-1 text-slate-400 hover:text-white transition-colors">
+              <X size={20} />
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <button
+                onClick={() => setConnectionType('local')}
+                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
+                  connectionType === 'local'
+                    ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
+                    : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                }`}
+              >
+                Local
+              </button>
+              <button
+                onClick={() => setConnectionType('ssh')}
+                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
+                  connectionType === 'ssh'
+                    ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
+                    : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                }`}
+              >
+                SSH
+              </button>
+            </div>
+
+            {connectionType === 'ssh' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-slate-400 mb-2">Host</label>
+                  <input
+                    type="text"
+                    value={host}
+                    onChange={(e) => setHost(e.target.value)}
+                    placeholder="192.168.1.100"
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-400 mb-2">Port</label>
+                    <input
+                      type="text"
+                      value={port}
+                      onChange={(e) => setPort(e.target.value)}
+                      placeholder="22"
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-400 mb-2">Username</label>
+                    <input
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="root"
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setAuthType('password')}
+                    className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all ${
+                      authType === 'password'
+                        ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30'
+                        : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                    }`}
+                  >
+                    Password
+                  </button>
+                  <button
+                    onClick={() => setAuthType('key')}
+                    className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all ${
+                      authType === 'key'
+                        ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30'
+                        : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                    }`}
+                  >
+                    SSH Key
+                  </button>
+                </div>
+
+                {authType === 'password' ? (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-400 mb-2">Password</label>
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-400 mb-2">SSH Key Path</label>
+                    <input
+                      type="text"
+                      value={keyPath}
+                      onChange={(e) => setKeyPath(e.target.value)}
+                      placeholder="~/.ssh/id_rsa"
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                )}
+              </>
+            )}
+
+            {error && (
+              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
+                {error}
+              </div>
+            )}
+
+            <button
+              onClick={handleConnect}
+              disabled={loading || (connectionType === 'ssh' && (!host || !username))}
+              className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold rounded-lg transition-all"
+            >
+              {loading ? 'Connecting...' : 'Connect'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -511,6 +740,8 @@ interface DetailsModalProps {
   onClose: () => void;
 }
 
+// Продолжение функции DetailsModal
+
 function DetailsModal({ container, onClose }: DetailsModalProps) {
   const [activeTab, setActiveTab] = useState<'stats' | 'env' | 'ports' | 'volumes' | 'network'>('stats');
   const [details, setDetails] = useState<ContainerDetails | null>(null);
@@ -537,7 +768,6 @@ function DetailsModal({ container, onClose }: DetailsModalProps) {
 
     fetchData();
     
-    // Обновление статистики каждые 2 секунды для запущенных контейнеров
     let interval: number | undefined;
     if (container.state === 'running') {
       interval = window.setInterval(async () => {
@@ -576,7 +806,6 @@ function DetailsModal({ container, onClose }: DetailsModalProps) {
           </button>
         </div>
 
-        {/* Tabs */}
         <div className="flex gap-2 p-4 border-b border-slate-800 overflow-x-auto">
           <button
             onClick={() => setActiveTab('stats')}
@@ -630,7 +859,6 @@ function DetailsModal({ container, onClose }: DetailsModalProps) {
           </button>
         </div>
 
-        {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
           {loading ? (
             <div className="flex items-center justify-center h-full">

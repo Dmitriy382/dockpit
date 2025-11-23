@@ -19,6 +19,35 @@ use tokio::sync::oneshot;
 use futures_util::StreamExt; 
 use tauri::Emitter; 
 use std::default::Default;
+use std::sync::Mutex;
+
+// Глобальное состояние подключения
+struct DockerConnection {
+    connection_type: Mutex<ConnectionType>,
+    ssh_config: Mutex<Option<SshConfig>>,
+}
+
+#[derive(Clone, Debug)]
+enum ConnectionType {
+    Local,
+    Ssh,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct SshConfig {
+    host: String,
+    port: u16,
+    username: String,
+    password: Option<String>,
+    key_path: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ConnectionInfo {
+    pub connection_type: String,
+    pub host: String,
+    pub connected: bool,
+}
 
 // Структура для контейнера
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -47,8 +76,6 @@ pub struct NetworkInfo {
     pub driver: String,
     pub scope: String,
 }
-
-// НОВЫЕ СТРУКТУРЫ для детальной информации
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ContainerStats {
@@ -90,10 +117,149 @@ pub struct ContainerDetails {
     pub restart_policy: String,
 }
 
+// Инициализация состояния
+impl Default for DockerConnection {
+    fn default() -> Self {
+        Self {
+            connection_type: Mutex::new(ConnectionType::Local),
+            ssh_config: Mutex::new(None),
+        }
+    }
+}
+
+// Функция для получения Docker подключения
+fn get_docker_connection(state: tauri::State<DockerConnection>) -> Result<Docker, String> {
+    let conn_type = state.connection_type.lock().unwrap().clone();
+    
+    match conn_type {
+        ConnectionType::Local => {
+            Docker::connect_with_local_defaults()
+                .map_err(|e| format!("Failed to connect to local Docker: {}", e))
+        },
+        ConnectionType::Ssh => {
+            let ssh_config = state.ssh_config.lock().unwrap().clone();
+            
+            if let Some(config) = ssh_config {
+                // Для SSH используем HTTP подключение через туннель
+                // Формат: http://host:2375 (стандартный Docker HTTP порт)
+                let docker_url = format!("http://{}:2375", config.host);
+                
+                Docker::connect_with_http(
+                    &docker_url,
+                    120,
+                    bollard::API_DEFAULT_VERSION
+                )
+                .map_err(|e| format!("Failed to connect via SSH: {}", e))
+            } else {
+                Err("SSH configuration not set".to_string())
+            }
+        }
+    }
+}
+
+// НОВЫЕ КОМАНДЫ ДЛЯ SSH
+
 #[tauri::command]
-async fn get_containers() -> Result<Vec<ContainerInfo>, String> {
-    let docker = Docker::connect_with_local_defaults()
-        .map_err(|e| format!("Failed to connect to Docker: {}", e))?;
+async fn connect_ssh(
+    host: String,
+    port: u16,
+    username: String,
+    password: Option<String>,
+    key_path: Option<String>,
+    state: tauri::State<'_, DockerConnection>,
+) -> Result<ConnectionInfo, String> {
+    let ssh_config = SshConfig {
+        host: host.clone(),
+        port,
+        username: username.clone(),
+        password: password.clone(),
+        key_path: key_path.clone(),
+    };
+    
+    // Сохраняем конфигурацию
+    *state.ssh_config.lock().unwrap() = Some(ssh_config.clone());
+    *state.connection_type.lock().unwrap() = ConnectionType::Ssh;
+    
+    // Проверяем подключение через HTTP (Docker должен быть доступен через HTTP API)
+    let docker_url = format!("http://{}:2375", host);
+    
+    match Docker::connect_with_http(&docker_url, 120, bollard::API_DEFAULT_VERSION) {
+        Ok(_docker) => {
+            Ok(ConnectionInfo {
+                connection_type: "ssh".to_string(),
+                host: format!("{}@{}:{}", username, host, port),
+                connected: true,
+            })
+        },
+        Err(e) => {
+            // Откатываем на локальное подключение при ошибке
+            *state.connection_type.lock().unwrap() = ConnectionType::Local;
+            *state.ssh_config.lock().unwrap() = None;
+            Err(format!("Connection failed: {}. Make sure Docker is exposed on port 2375 on remote host", e))
+        }
+    }
+}
+
+#[tauri::command]
+async fn connect_local(
+    state: tauri::State<'_, DockerConnection>,
+) -> Result<ConnectionInfo, String> {
+    *state.connection_type.lock().unwrap() = ConnectionType::Local;
+    *state.ssh_config.lock().unwrap() = None;
+    
+    // Проверяем подключение
+    match Docker::connect_with_local_defaults() {
+        Ok(_docker) => {
+            Ok(ConnectionInfo {
+                connection_type: "local".to_string(),
+                host: "localhost".to_string(),
+                connected: true,
+            })
+        },
+        Err(e) => {
+            Err(format!("Local connection failed: {}", e))
+        }
+    }
+}
+
+#[tauri::command]
+async fn get_connection_info(
+    state: tauri::State<'_, DockerConnection>,
+) -> Result<ConnectionInfo, String> {
+    let conn_type = state.connection_type.lock().unwrap().clone();
+    
+    match conn_type {
+        ConnectionType::Local => {
+            Ok(ConnectionInfo {
+                connection_type: "local".to_string(),
+                host: "localhost".to_string(),
+                connected: true,
+            })
+        },
+        ConnectionType::Ssh => {
+            let ssh_config = state.ssh_config.lock().unwrap().clone();
+            if let Some(config) = ssh_config {
+                Ok(ConnectionInfo {
+                    connection_type: "ssh".to_string(),
+                    host: format!("{}@{}:{}", config.username, config.host, config.port),
+                    connected: true,
+                })
+            } else {
+                Ok(ConnectionInfo {
+                    connection_type: "local".to_string(),
+                    host: "localhost".to_string(),
+                    connected: false,
+                })
+            }
+        }
+    }
+}
+
+#[tauri::command]
+async fn get_containers(
+    state: tauri::State<'_, DockerConnection>
+) -> Result<Vec<ContainerInfo>, String> {
+    let docker = get_docker_connection(state)?;
 
     let options = ListContainersOptionsBuilder::default()
         .all(true)
@@ -122,22 +288,20 @@ async fn get_containers() -> Result<Vec<ContainerInfo>, String> {
     Ok(result)
 }
 
-// НОВАЯ КОМАНДА: Получить детальную информацию о контейнере
 #[tauri::command]
-async fn get_container_details(id: String) -> Result<ContainerDetails, String> {
-    let docker = Docker::connect_with_local_defaults()
-        .map_err(|e| format!("Failed to connect to Docker: {}", e))?;
+async fn get_container_details(
+    id: String,
+    state: tauri::State<'_, DockerConnection>
+) -> Result<ContainerDetails, String> {
+    let docker = get_docker_connection(state)?;
 
-    // ИСПРАВЛЕНИЕ: Явно указываем тип для None
     let container = docker.inspect_container(&id, None::<InspectContainerOptions>).await
         .map_err(|e| format!("Failed to inspect container: {}", e))?;
 
-    // Переменные окружения
     let env = container.config.as_ref()
         .and_then(|c| c.env.clone())
         .unwrap_or_default();
 
-    // Порты
     let mut ports = Vec::new();
     if let Some(ref network_settings) = container.network_settings {
         if let Some(ref port_bindings) = network_settings.ports {
@@ -168,7 +332,6 @@ async fn get_container_details(id: String) -> Result<ContainerDetails, String> {
         }
     }
 
-    // Volumes
     let mut volumes = Vec::new();
     if let Some(mounts) = container.mounts {
         for mount in mounts {
@@ -181,7 +344,6 @@ async fn get_container_details(id: String) -> Result<ContainerDetails, String> {
         }
     }
 
-    // Сети
     let mut networks = Vec::new();
     if let Some(ref network_settings) = container.network_settings {
         if let Some(nets) = &network_settings.networks {
@@ -213,13 +375,13 @@ async fn get_container_details(id: String) -> Result<ContainerDetails, String> {
     Ok(details)
 }
 
-// НОВАЯ КОМАНДА: Получить статистику контейнера
 #[tauri::command]
-async fn get_container_stats(id: String) -> Result<ContainerStats, String> {
-    let docker = Docker::connect_with_local_defaults()
-        .map_err(|e| format!("Failed to connect to Docker: {}", e))?;
+async fn get_container_stats(
+    id: String,
+    state: tauri::State<'_, DockerConnection>
+) -> Result<ContainerStats, String> {
+    let docker = get_docker_connection(state)?;
 
-    // ИСПРАВЛЕНИЕ: Используем правильный StatsOptions из query_parameters
     let options = StatsOptions {
         stream: false,
         one_shot: true,
@@ -230,11 +392,9 @@ async fn get_container_stats(id: String) -> Result<ContainerStats, String> {
     if let Some(stats_result) = stats_stream.next().await {
         let stats = stats_result.map_err(|e| format!("Failed to get stats: {}", e))?;
 
-        // ИСПРАВЛЕНИЕ: Обрабатываем Option для cpu_stats и precpu_stats
         let cpu_stats = stats.cpu_stats.unwrap_or_default();
         let precpu_stats = stats.precpu_stats.unwrap_or_default();
         
-        // Расчет CPU процента
         let cpu_delta = cpu_stats.cpu_usage.as_ref()
             .and_then(|u| u.total_usage)
             .unwrap_or(0) as f64
@@ -251,27 +411,22 @@ async fn get_container_stats(id: String) -> Result<ContainerStats, String> {
             0.0
         };
 
-        // ИСПРАВЛЕНИЕ: Обрабатываем Option для memory_stats
         let memory_stats = stats.memory_stats.unwrap_or_default();
         let memory_usage = memory_stats.usage.unwrap_or(0);
         let memory_limit = memory_stats.limit.unwrap_or(1);
         let memory_percentage = (memory_usage as f64 / memory_limit as f64) * 100.0;
 
-        // Network
         let mut network_rx = 0u64;
         let mut network_tx = 0u64;
         if let Some(networks) = stats.networks {
             for (_name, net_stats) in networks {
-                // ИСПРАВЛЕНИЕ: Обрабатываем Option для rx_bytes и tx_bytes
                 network_rx += net_stats.rx_bytes.unwrap_or(0);
                 network_tx += net_stats.tx_bytes.unwrap_or(0);
             }
         }
 
-        // Block I/O
         let mut block_read = 0u64;
         let mut block_write = 0u64;
-        // ИСПРАВЛЕНИЕ: Обрабатываем Option для blkio_stats
         if let Some(blkio) = stats.blkio_stats {
             if let Some(blkio_stats) = blkio.io_service_bytes_recursive {
                 for entry in blkio_stats {
@@ -302,9 +457,10 @@ async fn get_container_stats(id: String) -> Result<ContainerStats, String> {
 }
 
 #[tauri::command]
-async fn get_images() -> Result<Vec<ImageInfo>, String> {
-    let docker = Docker::connect_with_local_defaults()
-        .map_err(|e| format!("Failed to connect to Docker: {}", e))?;
+async fn get_images(
+    state: tauri::State<'_, DockerConnection>
+) -> Result<Vec<ImageInfo>, String> {
+    let docker = get_docker_connection(state)?;
 
     let options = ListImagesOptionsBuilder::default()
         .all(false)
@@ -326,9 +482,10 @@ async fn get_images() -> Result<Vec<ImageInfo>, String> {
 }
 
 #[tauri::command]
-async fn get_networks() -> Result<Vec<NetworkInfo>, String> {
-    let docker = Docker::connect_with_local_defaults()
-        .map_err(|e| format!("Failed to connect to Docker: {}", e))?;
+async fn get_networks(
+    state: tauri::State<'_, DockerConnection>
+) -> Result<Vec<NetworkInfo>, String> {
+    let docker = get_docker_connection(state)?;
 
     let options = ListNetworksOptionsBuilder::default().build();
 
@@ -348,9 +505,11 @@ async fn get_networks() -> Result<Vec<NetworkInfo>, String> {
 }
 
 #[tauri::command]
-async fn start_container(id: String) -> Result<(), String> {
-    let docker = Docker::connect_with_local_defaults()
-        .map_err(|e| format!("Connection failed: {}", e))?;
+async fn start_container(
+    id: String,
+    state: tauri::State<'_, DockerConnection>
+) -> Result<(), String> {
+    let docker = get_docker_connection(state)?;
 
     let options = StartContainerOptionsBuilder::default().build();
     docker.start_container(&id, Some(options))
@@ -361,9 +520,11 @@ async fn start_container(id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn stop_container(id: String) -> Result<(), String> {
-    let docker = Docker::connect_with_local_defaults()
-        .map_err(|e| format!("Connection failed: {}", e))?;
+async fn stop_container(
+    id: String,
+    state: tauri::State<'_, DockerConnection>
+) -> Result<(), String> {
+    let docker = get_docker_connection(state)?;
 
     let options = StopContainerOptionsBuilder::default().build();
     docker.stop_container(&id, Some(options))
@@ -376,10 +537,10 @@ async fn stop_container(id: String) -> Result<(), String> {
 #[tauri::command]
 async fn stream_container_logs(
     id: String,
-    window: tauri::Window, 
+    window: tauri::Window,
+    state: tauri::State<'_, DockerConnection>
 ) -> Result<(), String> {
-    let docker = Docker::connect_with_local_defaults()
-        .map_err(|e| format!("Failed to connect to Docker: {}", e))?;
+    let docker = get_docker_connection(state)?;
 
     let options = Some(LogsOptions {
         follow: true, 
@@ -432,9 +593,11 @@ async fn stream_container_logs(
 }
 
 #[tauri::command]
-async fn remove_container(id: String) -> Result<(), String> {
-    let docker = Docker::connect_with_local_defaults()
-        .map_err(|e| format!("Connection failed: {}", e))?;
+async fn remove_container(
+    id: String,
+    state: tauri::State<'_, DockerConnection>
+) -> Result<(), String> {
+    let docker = get_docker_connection(state)?;
 
     let options = RemoveContainerOptionsBuilder::default().build(); 
     
@@ -446,9 +609,11 @@ async fn remove_container(id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn restart_container(id: String) -> Result<(), String> {
-    let docker = Docker::connect_with_local_defaults()
-        .map_err(|e| format!("Connection failed: {}", e))?;
+async fn restart_container(
+    id: String,
+    state: tauri::State<'_, DockerConnection>
+) -> Result<(), String> {
+    let docker = get_docker_connection(state)?;
 
     let options = RestartContainerOptionsBuilder::default().build();
 
@@ -461,7 +626,11 @@ async fn restart_container(id: String) -> Result<(), String> {
 
 fn main() {
     tauri::Builder::default()
+        .manage(DockerConnection::default())
         .invoke_handler(tauri::generate_handler![
+            connect_ssh,
+            connect_local,
+            get_connection_info,
             get_containers,
             get_container_details,
             get_container_stats,

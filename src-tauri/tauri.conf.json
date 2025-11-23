@@ -1,6 +1,5 @@
 {
-  "$schema": "https://schema.tauri.app/config/2",
-  "productName": "dockpit",
+  "productName": "Dockpit",
   "version": "0.1.0",
   "identifier": "com.dima.dockpit",
   "build": {
@@ -12,9 +11,13 @@
   "app": {
     "windows": [
       {
-        "title": "dockpit",
-        "width": 800,
-        "height": 600
+        "title": "Dockpit",
+        "width": 1400,
+        "height": 900,
+        "resizable": true,
+        "fullscreen": false,
+        "minWidth": 1024,
+        "minHeight": 768
       }
     ],
     "security": {
@@ -31,5 +34,6 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
-  }
+  },
+  "plugins": {}
 }
