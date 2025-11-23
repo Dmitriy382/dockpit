@@ -263,5 +263,5 @@ dockpit/
 ## 📞 Контакты
 
 - GitHub: [github.com/Dmitriy382/dockpit](https://github.com/Dmitriy382/dockpit)
-- Issues: [github.com/Dmitriy382/dockpit/issues](https://github.com/Dmitriy382/dockpit/issues)
+- :airplane: Telegram: [https://t.me/dockpit](https://t.me/dockpit)
 
