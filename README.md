@@ -235,7 +235,7 @@ WEBKIT_DISABLE_COMPOSITING_MODE=1 npm run tauri:dev
 
 **Примечание**: На Hyprland и других тайловых композиторах Wayland может потребоваться отключение композитинга для корректной работы WebKit.
 
-### 4. Сборка production версии
+### 4. Сборка версии
 
 ```bash
 npm run tauri:build
