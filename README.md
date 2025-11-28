@@ -1,10 +1,10 @@
-# 🐳 Dockpit
+[![Typing SVG](https://readme-typing-svg.herokuapp.com?font=Inter+&size=24&pause=1000&width=435&lines=Dockpit)]()
 
-**Dockpit** — современный графический интерфейс для управления Docker контейнерами, образами и сетями, написанный на Rust (Tauri) + React + TypeScript.
+**Dockpit** — графический интерфейс для управления Docker контейнерами, образами и сетями, написанный на Rust (Tauri) + React + TypeScript.
 
 ![Dockpit Demo](./assets/dockpit.gif)
 
-## ✨ Возможности
+[![Typing SVG](https://readme-typing-svg.herokuapp.com?font=Inter+&pause=1000&width=435&lines=%D0%92%D0%BE%D0%B7%D0%BC%D0%BE%D0%B6%D0%BD%D0%BE%D1%81%D1%82%D0%B8)]()
 
 🖥️ Управление контейнерами
 
@@ -38,29 +38,34 @@
 
 🔄 Переключение между несколькими хостами
 
+---
 
-___
-### SSH Туннелирование - Подробная инструкция
-Dockpit использует SSH туннель для безопасного подключения к удаленному Docker. Вот что происходит под капотом:
+[![Typing SVG](https://readme-typing-svg.herokuapp.com?font=Inter+&pause=1000&width=435&lines=SSH+%D0%A2%D1%83%D0%BD%D0%B5%D0%BB%D0%B8%D1%80%D0%BE%D0%B2%D0%B0%D0%BD%D0%B8%D0%B5)](https://git.io/typing-svg)
+Dockpit использует SSH туннель для подключения к удаленному Docker. Вот что происходит под капотом:
 
-- Для возможности пользоваться необходимо для начала настроить ssh-тунель к машине, к которой хотите подключиться 
+- Для возможности пользоваться необходимо для начала настроить ssh-тунель к машине, к которой хотите подключиться
 - Docker socket удаленного сервера пробрасывается на локальный порт
 - Dockpit подключается к локальному порту как к обычному Docker API
 
 ---
 
-### 📋 Требования на удаленном сервере
+[![Typing SVG](https://readme-typing-svg.herokuapp.com?font=Inter+&pause=1000&width=435&lines=%D0%A2%D1%80%D0%B5%D0%B1%D0%BE%D0%B2%D0%B0%D0%BD%D0%B8%D0%B5+%D0%BD%D0%B0+%D1%83%D0%B4%D0%B0%D0%BB.+%D1%81%D0%B5%D1%80%D0%B2%D0%B5%D1%80%D0%B5)]()
 Перед подключением убедитесь, что на удаленном сервере:
+
 ##### 1. Docker установлен и запущен
+
 ##### 2. Docker socket доступен
 
 ##### 3. Пользователь добавлен в группу docker
+
 - sudo usermod -aG docker $USER
 
 - ВАЖНО: Если команды требует sudo, SSH туннель не будет работать! Обязательно добавьте пользователя в группу docker.
 
 4. SSH сервер установлен и запущен
+
 ---
+
 ##### 📡 Добавление SSH хоста в Dockpit
 
 - Запустите Dockpit
@@ -68,10 +73,9 @@ Dockpit использует SSH туннель для безопасного п
 - Нажмите "Добавить хост"
 - Выберите "SSH Туннель"
 
-![Dockpit ssh connections demo](./assets/ssh-conection-demo.gif)
----
+## ![Dockpit ssh connections demo](./assets/ssh-conection-demo.gif)
 
-## 📦 Установка зависимостей по дистрибутивам
+[![Typing SVG](https://readme-typing-svg.herokuapp.com?font=Inter+&pause=1000&width=435&lines=%D0%A3%D1%81%D1%82%D0%B0%D0%BD%D0%BE%D0%B2%D0%BA%D0%B0+%D0%B7%D0%B0%D0%B2%D0%B8%D1%81%D0%B8%D0%BC%D0%BE%D1%81%D1%82%D0%B5%D0%B9)]()
 
 ### 🔷 Arch Linux / Manjaro
 
@@ -204,7 +208,7 @@ sudo usermod -aG docker $USER
 
 ---
 
-## 🚀 Установка и запуск Dockpit
+[![Typing SVG](https://readme-typing-svg.herokuapp.com?font=Inter+&pause=1000&width=435&lines=%D0%A3%D1%81%D1%82%D0%B0%D0%BD%D0%BE%D0%B2%D0%BA%D0%B0+%D0%B8+%D0%B7%D0%B0%D0%BF%D1%83%D1%81%D0%BA+Dockpit)]()
 
 ### 1. Клонирование репозитория
 
@@ -245,11 +249,12 @@ npm run tauri:build
 
 ---
 
-## 🐋 Конфигурация Docker
+[![Typing SVG](https://readme-typing-svg.herokuapp.com?font=Inter+&pause=1000&width=435&lines=%D0%9A%D0%BE%D1%84%D0%B8%D0%B3%D1%83%D1%80%D0%B0%D1%86%D0%B8%D1%8F+Docker)]()
 
 ### Подключение к Docker socket
 
 По умолчанию Dockpit подключается к Docker через Unix socket:
+
 - Linux: `/var/run/docker.sock`
 
 Убедитесь, что ваш пользователь добавлен в группу `docker`:
@@ -279,7 +284,7 @@ sudo ln -s /run/user/$UID/podman/podman.sock /var/run/docker.sock
 
 ---
 
-## 📁 Структура проекта
+[![Typing SVG](https://readme-typing-svg.herokuapp.com?font=Inter+&pause=1000&width=435&lines=%D0%A1%D1%82%D1%80%D0%BA%D1%83%D1%82%D1%83%D1%80%D0%B0+%D0%BF%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D0%B0)]()
 
 ```
 dockpit/
@@ -298,18 +303,17 @@ dockpit/
 
 ---
 
-## 🔧 Технологии
+[![Typing SVG](https://readme-typing-svg.herokuapp.com?font=Inter+&pause=1000&width=435&lines=%D0%A2%D0%B5%D1%85%D0%BD%D0%BE%D0%BB%D0%BE%D0%B3%D0%B8%D0%B8)]()
 
 - **Frontend**: React 18, TypeScript, Tailwind CSS
 - **Backend**: Rust, Tauri v2, Bollard (Docker API)
 - **Icons**: Lucide React
 
-
 ---
 
-## 📞 Контакты
+[![Typing SVG](https://readme-typing-svg.herokuapp.com?font=Inter+&pause=1000&width=435&lines=%D0%9A%D0%BE%D0%BD%D1%82%D0%B0%D0%BA%D1%82%D1%8B)]()
 
 - GitHub: [github.com/Dmitriy382/dockpit](https://github.com/Dmitriy382/dockpit)
 - :airplane: Telegram: [https://t.me/dockpit](https://t.me/dockpit)
+
 ---
-⭐ Если проект был полезен - поставьте звезду на GitHub!
