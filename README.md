@@ -41,6 +41,7 @@
 ---
 
 [![Typing SVG](https://readme-typing-svg.herokuapp.com?font=Inter+&pause=1000&width=435&lines=SSH+%D0%A2%D1%83%D0%BD%D0%B5%D0%BB%D0%B8%D1%80%D0%BE%D0%B2%D0%B0%D0%BD%D0%B8%D0%B5)](https://git.io/typing-svg)
+
 Dockpit использует SSH туннель для подключения к удаленному Docker. Вот что происходит под капотом:
 
 - Для возможности пользоваться необходимо для начала настроить ssh-тунель к машине, к которой хотите подключиться
@@ -50,6 +51,7 @@ Dockpit использует SSH туннель для подключения к
 ---
 
 [![Typing SVG](https://readme-typing-svg.herokuapp.com?font=Inter+&pause=1000&width=435&lines=%D0%A2%D1%80%D0%B5%D0%B1%D0%BE%D0%B2%D0%B0%D0%BD%D0%B8%D0%B5+%D0%BD%D0%B0+%D1%83%D0%B4%D0%B0%D0%BB.+%D1%81%D0%B5%D1%80%D0%B2%D0%B5%D1%80%D0%B5)]()
+
 Перед подключением убедитесь, что на удаленном сервере:
 
 ##### 1. Docker установлен и запущен
